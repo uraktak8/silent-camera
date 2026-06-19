@@ -8,7 +8,8 @@
 <title>Silent Camera</title>
 <style>
   :root{
-    --accent:#ffd60a;      /* iOS風アクティブ黄 */
+    --accent:#ffd60a;
+    --rec:#ff3b30;
     --ctrl-bg:rgba(20,20,22,.55);
     --ctrl-bg-active:rgba(255,214,10,.95);
     --safe-top:env(safe-area-inset-top,0px);
@@ -20,46 +21,55 @@
     color:#fff;user-select:none;-webkit-user-select:none;}
   #app{position:fixed;inset:0;display:flex;flex-direction:column;}
 
-  /* ---------- カメラ表示 ---------- */
-  #stage{position:relative;flex:1;overflow:hidden;background:#000;
-    touch-action:none;}
+  #stage{position:relative;flex:1;overflow:hidden;background:#000;touch-action:none;}
   #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
     transform-origin:center center;transition:opacity .25s ease;}
-  #video.mirror{transform:scaleX(-1);}
   #stage.switching #video{opacity:0;}
 
-  /* グリッド */
   #grid{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .2s;}
   #grid.on{opacity:1;}
-  #grid::before,#grid::after{content:"";position:absolute;background:rgba(255,255,255,.35);}
   #grid .v,#grid .h{position:absolute;background:rgba(255,255,255,.35);}
   #grid .v{width:1px;height:100%;}
   #grid .h{height:1px;width:100%;}
 
-  /* シャッターのフラッシュ演出 */
   #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;}
   #flash.fire{animation:flash .32s ease;}
   @keyframes flash{0%{opacity:0}12%{opacity:.9}100%{opacity:0}}
 
-  /* タイマーのカウント表示 */
   #count{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
     font-size:34vw;font-weight:200;color:rgba(255,255,255,.9);
     text-shadow:0 2px 30px rgba(0,0,0,.5);pointer-events:none;}
   #count.show{display:flex;}
 
-  /* ズーム表示ピル */
+  /* 録画タイマー */
+  #rectime{position:absolute;top:calc(var(--safe-top) + 64px);left:50%;transform:translateX(-50%);
+    display:none;align-items:center;gap:7px;background:rgba(0,0,0,.45);
+    padding:6px 13px;border-radius:18px;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;}
+  #rectime.show{display:flex;}
+  #rectime .dot{width:10px;height:10px;border-radius:50%;background:var(--rec);animation:blink 1s infinite;}
+  @keyframes blink{50%{opacity:.25}}
+
   #zoom{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
     background:var(--ctrl-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
     padding:7px 14px;border-radius:20px;font-size:14px;font-weight:600;
-    color:var(--accent);opacity:0;transition:opacity .25s;}
+    color:var(--accent);opacity:0;transition:opacity .25s;pointer-events:none;}
   #zoom.show{opacity:1;}
 
-  /* ---------- 上部バー ---------- */
+  /* レンズ選択ピル */
+  #lenses{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);
+    display:none;gap:8px;background:rgba(0,0,0,.4);backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);padding:6px;border-radius:24px;}
+  #lenses.show{display:flex;}
+  #lenses button{min-width:38px;height:38px;border-radius:50%;border:none;
+    background:transparent;color:#fff;font-size:13px;font-weight:600;cursor:pointer;
+    transition:.15s;padding:0 9px;}
+  #lenses button.active{background:rgba(255,255,255,.15);color:var(--accent);transform:scale(1.05);}
+
   #topbar{position:absolute;top:0;left:0;right:0;z-index:5;
     padding:calc(var(--safe-top) + 10px) 16px 14px;
     display:flex;align-items:center;justify-content:center;gap:14px;
     background:linear-gradient(to bottom,rgba(0,0,0,.45),transparent);}
-  .pill{width:42px;height:42px;border-radius:50%;border:none;
+  .pill{position:relative;width:42px;height:42px;border-radius:50%;border:none;
     background:var(--ctrl-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
     display:flex;align-items:center;justify-content:center;cursor:pointer;
     transition:transform .12s, background .15s;}
@@ -72,39 +82,45 @@
     transform:translate(13px,11px);}
   .pill.active .timerlabel{color:#000;}
 
-  /* ---------- 下部バー ---------- */
+  /* モード切替 */
+  #modeSwitch{display:flex;justify-content:center;gap:26px;
+    padding:10px 0 4px;background:#000;}
+  #modeSwitch button{background:none;border:none;color:#8a8a8e;font-size:14px;
+    font-weight:600;letter-spacing:.06em;cursor:pointer;padding:5px 4px;transition:.15s;}
+  #modeSwitch button.active{color:var(--accent);}
+
   #bottombar{position:relative;z-index:5;
-    padding:18px 0 calc(var(--safe-bottom) + 18px);
-    background:#000;
-    display:flex;align-items:center;justify-content:space-around;}
-  /* サムネイル */
-  #thumb{width:54px;height:54px;border-radius:11px;overflow:hidden;
+    padding:8px 0 calc(var(--safe-bottom) + 18px);
+    background:#000;display:flex;align-items:center;justify-content:space-around;}
+  #thumb{position:relative;width:54px;height:54px;border-radius:11px;overflow:hidden;
     background:#1c1c1e;border:1px solid rgba(255,255,255,.18);
-    display:flex;align-items:center;justify-content:center;cursor:pointer;
-    transition:transform .12s;}
+    display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .12s;}
   #thumb:active{transform:scale(.9);}
-  #thumb img{width:100%;height:100%;object-fit:cover;}
-  #thumb .badge{position:absolute;transform:translate(20px,-20px);
+  #thumb img,#thumb video{width:100%;height:100%;object-fit:cover;}
+  #thumb .badge{position:absolute;top:-7px;right:-7px;
     background:var(--accent);color:#000;font-size:11px;font-weight:700;
     min-width:18px;height:18px;border-radius:9px;display:flex;
     align-items:center;justify-content:center;padding:0 5px;}
-  /* シャッター */
+  #thumb .play{position:absolute;width:18px;height:18px;}
+
   #shutter{width:74px;height:74px;border-radius:50%;background:transparent;
-    border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
-    position:relative;}
-  #shutter::before{content:"";position:absolute;inset:0;border-radius:50%;
-    border:4px solid #fff;}
+    border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;}
+  #shutter::before{content:"";position:absolute;inset:0;border-radius:50%;border:4px solid #fff;}
   #shutter::after{content:"";width:60px;height:60px;border-radius:50%;background:#fff;
-    transition:transform .12s, width .12s, height .12s;}
+    transition:transform .15s, width .2s, height .2s, border-radius .2s, background .2s;}
   #shutter:active::after{transform:scale(.88);}
-  /* 反転ボタン */
-  #flip{width:54px;height:54px;border-radius:50%;border:none;
-    background:#1c1c1e;display:flex;align-items:center;justify-content:center;cursor:pointer;
-    transition:transform .35s;}
+  #shutter.video::after{background:var(--rec);}
+  #shutter.rec::after{width:28px;height:28px;border-radius:8px;background:var(--rec);}
+
+  #flip{width:54px;height:54px;border-radius:50%;border:none;background:#1c1c1e;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .35s;}
   #flip:active{transform:rotate(180deg);}
   #flip svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:1.7;}
 
-  /* ---------- スタート画面 / エラー ---------- */
+  /* 録画中は他操作を抑制 */
+  body.recording #modeSwitch,body.recording #flip,body.recording #thumb,
+  body.recording #lenses,body.recording #btnTimer{opacity:.35;pointer-events:none;}
+
   #start{position:absolute;inset:0;z-index:20;background:#000;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     text-align:center;padding:40px;gap:22px;}
@@ -112,44 +128,35 @@
   #start .sub{font-size:14px;line-height:1.7;color:#9a9a9e;max-width:300px;}
   #start .cam-ic{width:64px;height:64px;stroke:var(--accent);fill:none;stroke-width:1.6;}
   #startBtn{margin-top:6px;background:var(--accent);color:#000;border:none;
-    font-size:17px;font-weight:600;padding:15px 40px;border-radius:30px;cursor:pointer;
-    transition:transform .12s;}
+    font-size:17px;font-weight:600;padding:15px 40px;border-radius:30px;cursor:pointer;transition:transform .12s;}
   #startBtn:active{transform:scale(.95);}
   #err{display:none;color:#ff6b6b;font-size:14px;line-height:1.7;max-width:320px;}
 
-  /* ---------- レビュー / ギャラリー ---------- */
-  #review{position:fixed;inset:0;z-index:30;background:#000;display:none;
-    flex-direction:column;}
+  #review{position:fixed;inset:0;z-index:30;background:#000;display:none;flex-direction:column;}
   #review.show{display:flex;}
   #revtop{display:flex;align-items:center;justify-content:space-between;
     padding:calc(var(--safe-top) + 12px) 18px 12px;}
-  #revtop button{background:none;border:none;color:var(--accent);font-size:17px;
-    cursor:pointer;padding:6px;}
+  #revtop button{background:none;border:none;color:var(--accent);font-size:17px;cursor:pointer;padding:6px;}
   #revtop .count{color:#fff;font-size:15px;font-weight:500;}
-  #revstage{flex:1;overflow-x:auto;display:flex;scroll-snap-type:x mandatory;
-    -webkit-overflow-scrolling:touch;}
+  #revstage{flex:1;overflow-x:auto;display:flex;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;}
   #revstage::-webkit-scrollbar{display:none;}
-  #revstage .slide{min-width:100%;scroll-snap-align:center;display:flex;
-    align-items:center;justify-content:center;}
-  #revstage .slide img{max-width:100%;max-height:100%;object-fit:contain;}
+  #revstage .slide{min-width:100%;scroll-snap-align:center;display:flex;align-items:center;justify-content:center;}
+  #revstage .slide img,#revstage .slide video{max-width:100%;max-height:100%;object-fit:contain;}
   #revbottom{display:flex;align-items:center;justify-content:space-around;
     padding:18px 0 calc(var(--safe-bottom) + 18px);}
   .revbtn{background:none;border:none;display:flex;flex-direction:column;gap:5px;
-    align-items:center;color:#fff;font-size:11px;cursor:pointer;padding:6px 20px;
-    transition:transform .12s;}
+    align-items:center;color:#fff;font-size:11px;cursor:pointer;padding:6px 20px;transition:transform .12s;}
   .revbtn:active{transform:scale(.9);}
   .revbtn svg{width:25px;height:25px;stroke:#fff;fill:none;stroke-width:1.7;}
   .revbtn.del{color:#ff6b6b;}
   .revbtn.del svg{stroke:#ff6b6b;}
-  #revempty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
-    color:#6a6a6e;font-size:15px;}
+  #revempty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#6a6a6e;font-size:15px;}
 
-  /* トースト */
-  #toast{position:fixed;bottom:calc(var(--safe-bottom) + 110px);left:50%;
+  #toast{position:fixed;bottom:calc(var(--safe-bottom) + 130px);left:50%;
     transform:translateX(-50%) translateY(20px);z-index:40;
     background:rgba(40,40,42,.95);backdrop-filter:blur(10px);
     color:#fff;font-size:14px;padding:11px 20px;border-radius:22px;
-    opacity:0;pointer-events:none;transition:.3s;white-space:nowrap;}
+    opacity:0;pointer-events:none;transition:.3s;max-width:86%;text-align:center;}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 </style>
 </head>
@@ -161,6 +168,9 @@
     <div id="flash"></div>
     <div id="count"></div>
     <div id="zoom">1.0×</div>
+    <div id="lenses"></div>
+
+    <div id="rectime"><span class="dot"></span><span id="rectimeText">0:00</span></div>
 
     <div id="topbar">
       <button class="pill" id="btnTorch" hidden aria-label="ライト">
@@ -176,8 +186,13 @@
     </div>
   </div>
 
+  <div id="modeSwitch">
+    <button data-mode="photo" class="active">写真</button>
+    <button data-mode="video">ビデオ</button>
+  </div>
+
   <div id="bottombar">
-    <div id="thumb" aria-label="撮影した写真">
+    <div id="thumb" aria-label="撮影したもの">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5a5a5e" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
     </div>
     <button id="shutter" aria-label="撮影"></button>
@@ -186,7 +201,6 @@
     </button>
   </div>
 
-  <!-- スタート画面 -->
   <div id="start">
     <svg class="cam-ic" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/></svg>
     <h1>Silent Camera</h1>
@@ -196,7 +210,6 @@
   </div>
 </div>
 
-<!-- レビュー / ギャラリー -->
 <div id="review">
   <div id="revtop">
     <button id="revClose">完了</button>
@@ -204,11 +217,11 @@
     <span style="width:48px"></span>
   </div>
   <div id="revstage"></div>
-  <div id="revempty">写真がありません</div>
+  <div id="revempty">まだ何もありません</div>
   <div id="revbottom">
     <button class="revbtn" id="revSave">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
-      写真に保存
+      保存
     </button>
     <button class="revbtn del" id="revDel">
       <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14"/></svg>
@@ -226,278 +239,314 @@
   const video=$("video"), stage=$("stage"), startScreen=$("start"),
         startBtn=$("startBtn"), errEl=$("err"),
         flashEl=$("flash"), countEl=$("count"), zoomEl=$("zoom"),
+        lensesEl=$("lenses"), rectimeEl=$("rectime"), rectimeText=$("rectimeText"),
         thumb=$("thumb"), shutter=$("shutter"), flip=$("flip"),
         btnTorch=$("btnTorch"), btnGrid=$("btnGrid"), btnTimer=$("btnTimer"),
         timerLabel=$("timerLabel"), gridEl=$("grid"), toastEl=$("toast"),
+        modeSwitch=$("modeSwitch"),
         review=$("review"), revstage=$("revstage"), revCount=$("revCount"),
-        revClose=$("revClose"), revSave=$("revSave"), revDel=$("revDel"),
-        revEmpty=$("revempty");
+        revClose=$("revClose"), revSave=$("revSave"), revDel=$("revDel"), revEmpty=$("revempty");
 
-  let stream=null, track=null, facing="environment",
+  let stream=null, track=null,
+      mode="photo",                 // photo | video
+      side="back",                  // back | front
+      cams={back:[],front:[]}, backIdx=0, enumerated=false,
       zoom=1, maxZoom=5, torchOn=false,
       timerMode=0, timers=[0,3,10],
-      photos=[]; // {url, blob}
+      recorder=null, recChunks=[], recMime="", recInt=null, recStart=0, recSilent=false,
+      items=[];                     // {type:'photo'|'video', url, blob, ext}
 
-  /* ---------- トースト ---------- */
   let toastT;
   function toast(msg){
     toastEl.textContent=msg; toastEl.classList.add("show");
-    clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove("show"),1800);
+    clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove("show"),2200);
   }
 
-  /* ---------- カメラ起動 ---------- */
-  async function startCamera(){
-    if(!window.isSecureContext){
-      showError("カメラを使うにはHTTPS環境で開く必要があります。Safariで https:// のページから開いてください。");
-      return;
+  /* ---------------- カメラ起動 ---------------- */
+  function buildVideoConstraint(){
+    const base={width:{ideal:4096},height:{ideal:2160}};
+    if(side==="back" && cams.back.length && cams.back[backIdx]){
+      return Object.assign({deviceId:{exact:cams.back[backIdx].deviceId}}, base);
     }
-    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-      showError("このブラウザはカメラに対応していません。");
-      return;
+    if(side==="front" && cams.front.length){
+      return Object.assign({deviceId:{exact:cams.front[0].deviceId}}, base);
     }
+    return Object.assign({facingMode:{ideal: side==="front"?"user":"environment"}}, base);
+  }
+
+  async function requestStream(){
+    if(!window.isSecureContext){ showError("カメラを使うにはHTTPS環境で開く必要があります。"); return; }
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ showError("このブラウザはカメラに対応していません。"); return; }
     try{
       if(stream) stream.getTracks().forEach(t=>t.stop());
       stage.classList.add("switching");
-      const constraints={
-        audio:false,
-        video:{
-          facingMode:{ideal:facing},
-          width:{ideal:4096}, height:{ideal:2160}
-        }
-      };
-      stream=await navigator.mediaDevices.getUserMedia(constraints);
+      const wantAudio = (mode==="video");
+      recSilent=false;
+      const vc=buildVideoConstraint();
+      try{
+        stream=await navigator.mediaDevices.getUserMedia({audio:wantAudio, video:vc});
+      }catch(e){
+        if(wantAudio){ // マイク不可なら無音で継続
+          stream=await navigator.mediaDevices.getUserMedia({audio:false, video:vc});
+          recSilent=true; toast("マイクが使えないため無音で録画します");
+        }else{ throw e; }
+      }
       video.srcObject=stream;
       track=stream.getVideoTracks()[0];
       await video.play().catch(()=>{});
-      // 前面はミラー表示
-      video.classList.toggle("mirror", facing==="user");
-      // 機能ケイパビリティ
-      setupCapabilities();
-      // ズームリセット
-      zoom=1; applyZoom();
       startScreen.style.display="none";
+
+      if(!enumerated){ await enumerateCams(); }
+      applyMirror();
+      setupCapabilities();
+      zoom=1; applyZoom(true);
+      updateLensUI();
       setTimeout(()=>stage.classList.remove("switching"),60);
     }catch(e){
       stage.classList.remove("switching");
-      if(e && (e.name==="NotAllowedError"||e.name==="SecurityError")){
+      if(e && (e.name==="NotAllowedError"||e.name==="SecurityError"))
         showError("カメラへのアクセスが許可されませんでした。設定 > Safari > カメラ を確認してください。");
-      }else if(e && e.name==="NotFoundError"){
-        showError("カメラが見つかりませんでした。");
-      }else{
-        showError("カメラを起動できませんでした: "+(e && e.message || e));
-      }
+      else if(e && e.name==="NotFoundError") showError("カメラが見つかりませんでした。");
+      else showError("カメラを起動できませんでした: "+((e&&e.message)||e));
     }
   }
-  function showError(msg){
-    startScreen.style.display="flex";
-    errEl.style.display="block"; errEl.textContent=msg;
+  function showError(msg){ startScreen.style.display="flex"; errEl.style.display="block"; errEl.textContent=msg; }
+
+  async function enumerateCams(){
+    try{
+      const devs=await navigator.mediaDevices.enumerateDevices();
+      const vids=devs.filter(d=>d.kind==="videoinput");
+      const back=[], front=[], seen={};
+      vids.forEach(d=>{
+        if(seen[d.label] && d.label) return; seen[d.label]=1;
+        const l=(d.label||"").toLowerCase();
+        if(/front|user|前面|self/.test(l)) front.push(d);
+        else if(/back|rear|environment|背面|wide|telephoto|ultra/.test(l)) back.push(d);
+        else back.push(d); // 不明は背面扱い
+      });
+      // 何も分類できなければ全部を背面に
+      cams.back = back.length?back:vids.slice();
+      cams.front = front;
+      // 現在のtrackに一致するレンズをアクティブに
+      const cur=track && track.getSettings ? track.getSettings().deviceId : null;
+      const i=cams.back.findIndex(d=>d.deviceId===cur);
+      backIdx = i>=0?i:0;
+      enumerated=true;
+    }catch(e){ /* 失敗してもfacingModeで動作 */ }
   }
+
+  function lensName(label, idx, total){
+    const l=(label||"").toLowerCase();
+    if(/ultra.?wide|超広角/.test(l)) return "0.5×";
+    if(/telephoto|望遠/.test(l))      return "望遠";
+    if(/wide|back camera|背面|dual|triple/.test(l)) return "1×";
+    return total>1 ? String(idx+1) : "1×";
+  }
+
+  function updateLensUI(){
+    lensesEl.innerHTML="";
+    // 背面かつ複数レンズのときだけ表示
+    if(side==="back" && cams.back.length>1){
+      const cur=track && track.getSettings ? track.getSettings().deviceId : null;
+      cams.back.forEach((d,i)=>{
+        const b=document.createElement("button");
+        b.textContent=lensName(d.label,i,cams.back.length);
+        if(d.deviceId===cur || i===backIdx) b.classList.add("active");
+        b.addEventListener("click",()=>{ backIdx=i; requestStream(); });
+        lensesEl.appendChild(b);
+      });
+      lensesEl.classList.add("show");
+    }else{
+      lensesEl.classList.remove("show");
+    }
+  }
+
+  function applyMirror(){ /* mirror はズーム適用時にまとめて反映 */ applyZoom(true); }
 
   function setupCapabilities(){
     torchOn=false; btnTorch.classList.remove("active");
-    let caps={};
-    try{ caps=track.getCapabilities ? track.getCapabilities() : {}; }catch(e){}
-    // ライト(背面のみ・対応端末のみ)
-    btnTorch.hidden = !(caps.torch && facing==="environment");
-    // ハード光学ズームが取れるなら上限を反映、無ければデジタル
-    if(caps.zoom && caps.zoom.max){ maxZoom=Math.min(caps.zoom.max,8); }
-    else { maxZoom=5; }
+    let caps={}; try{ caps=track.getCapabilities?track.getCapabilities():{}; }catch(e){}
+    btnTorch.hidden = !(caps.torch && side==="back");
+    maxZoom = (caps.zoom && caps.zoom.max) ? Math.min(caps.zoom.max,8) : 5;
   }
 
-  /* ---------- ズーム(光学優先・無ければデジタル) ---------- */
-  function applyZoom(){
+  /* ---------------- ズーム ---------------- */
+  function applyZoom(silent){
     zoom=Math.max(1,Math.min(maxZoom,zoom));
+    const mirror = (side==="front");
     let optical=false;
     try{
-      const caps=track && track.getCapabilities ? track.getCapabilities() : {};
-      if(caps.zoom && caps.zoom.max){
-        track.applyConstraints({advanced:[{zoom:zoom}]});
-        optical=true;
-        video.style.transform = facing==="user" ? "scaleX(-1)" : "";
-      }
+      const caps=track && track.getCapabilities?track.getCapabilities():{};
+      if(caps.zoom && caps.zoom.max){ track.applyConstraints({advanced:[{zoom:zoom}]}); optical=true; }
     }catch(e){}
-    if(!optical){
-      // デジタルズーム：表示をスケール
-      const sx = facing==="user" ? -1 : 1;
-      video.style.transform=`scale(${zoom})`+(sx===-1?" scaleX(-1)":"");
-    }
+    if(optical){ video.style.transform = mirror?"scaleX(-1)":""; }
+    else { video.style.transform = `scale(${zoom})` + (mirror?" scaleX(-1)":""); }
     zoomEl.textContent=zoom.toFixed(1)+"×";
-    zoomEl.classList.add("show");
-    clearTimeout(applyZoom._t);
-    applyZoom._t=setTimeout(()=>zoomEl.classList.remove("show"),1100);
+    if(!silent){
+      zoomEl.classList.add("show");
+      clearTimeout(applyZoom._t);
+      applyZoom._t=setTimeout(()=>zoomEl.classList.remove("show"),1100);
+    }
   }
 
-  // ピンチズーム
   let pinchStart=0, pinchBase=1;
-  stage.addEventListener("touchstart",e=>{
-    if(e.touches.length===2){ pinchStart=dist(e.touches); pinchBase=zoom; }
-  },{passive:true});
-  stage.addEventListener("touchmove",e=>{
-    if(e.touches.length===2 && pinchStart){
-      const d=dist(e.touches);
-      zoom=pinchBase*(d/pinchStart); applyZoom();
-      e.preventDefault();
-    }
-  },{passive:false});
+  stage.addEventListener("touchstart",e=>{ if(e.touches.length===2){ pinchStart=dist(e.touches); pinchBase=zoom; }},{passive:true});
+  stage.addEventListener("touchmove",e=>{ if(e.touches.length===2&&pinchStart){ zoom=pinchBase*(dist(e.touches)/pinchStart); applyZoom(); e.preventDefault(); }},{passive:false});
   stage.addEventListener("touchend",e=>{ if(e.touches.length<2) pinchStart=0; });
   function dist(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);}
-
-  // ダブルタップで 1× / 2× トグル
   let lastTap=0;
-  stage.addEventListener("touchend",e=>{
-    if(e.touches.length>0) return;
-    const now=Date.now();
-    if(now-lastTap<280){ zoom = zoom>1.5 ? 1 : 2; applyZoom(); }
-    lastTap=now;
-  });
+  stage.addEventListener("touchend",e=>{ if(e.touches.length>0)return; const n=Date.now(); if(n-lastTap<280){ zoom=zoom>1.5?1:2; applyZoom(); } lastTap=n; });
 
-  /* ---------- 撮影(無音) ---------- */
+  /* ---------------- 写真撮影(無音) ---------------- */
   function doCapture(){
-    if(!track){ return; }
+    if(!track){return;}
     const vw=video.videoWidth, vh=video.videoHeight;
     if(!vw||!vh){ toast("カメラ準備中です"); return; }
-    const canvas=document.createElement("canvas");
+    let optical=false;
+    try{ const c=track.getCapabilities?track.getCapabilities():{}; optical=!!(c.zoom&&c.zoom.max); }catch(e){}
+    const z=optical?1:zoom;
+    const cw=vw/z, ch=vh/z, sx=(vw-cw)/2, sy=(vh-ch)/2;
+    const canvas=document.createElement("canvas"); canvas.width=cw; canvas.height=ch;
     const ctx=canvas.getContext("2d");
-    // デジタルズーム分を中央クロップ
-    let opticalZoom=false;
-    try{
-      const caps=track.getCapabilities?track.getCapabilities():{};
-      opticalZoom = !!(caps.zoom && caps.zoom.max);
-    }catch(e){}
-    const z = opticalZoom ? 1 : zoom;
-    const cw=vw/z, ch=vh/z;
-    const sx=(vw-cw)/2, sy=(vh-ch)/2;
-    canvas.width=cw; canvas.height=ch;
-    if(facing==="user"){ ctx.translate(cw,0); ctx.scale(-1,1); } // 見たままミラーで保存
-    ctx.drawImage(video, sx, sy, cw, ch, 0, 0, cw, ch);
-
+    if(side==="front"){ ctx.translate(cw,0); ctx.scale(-1,1); }
+    ctx.drawImage(video, sx,sy,cw,ch, 0,0,cw,ch);
     flashEl.classList.remove("fire"); void flashEl.offsetWidth; flashEl.classList.add("fire");
     if(navigator.vibrate) navigator.vibrate(8);
-
     canvas.toBlob(blob=>{
       if(!blob){ toast("撮影に失敗しました"); return; }
-      const url=URL.createObjectURL(blob);
-      photos.unshift({url,blob});
-      updateThumb();
+      addItem({type:"photo", blob, ext:"jpg"});
     },"image/jpeg",0.95);
   }
-
-  function capture(){
+  function capturePhoto(){
     if(timerMode===0){ doCapture(); return; }
-    let n=timers[timerMode];
-    countEl.classList.add("show"); countEl.textContent=n;
-    const iv=setInterval(()=>{
-      n--;
-      if(n<=0){ clearInterval(iv); countEl.classList.remove("show"); doCapture(); }
-      else countEl.textContent=n;
-    },1000);
+    let n=timers[timerMode]; countEl.classList.add("show"); countEl.textContent=n;
+    const iv=setInterval(()=>{ n--; if(n<=0){ clearInterval(iv); countEl.classList.remove("show"); doCapture(); } else countEl.textContent=n; },1000);
   }
 
-  /* ---------- サムネイル ---------- */
+  /* ---------------- 動画撮影 ---------------- */
+  function pickMime(){
+    const c=["video/mp4","video/mp4;codecs=avc1.42E01E,mp4a.40.2","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
+    for(const m of c){ try{ if(window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m; }catch(e){} }
+    return "";
+  }
+  function startRec(){
+    if(!stream || !window.MediaRecorder){ toast("この端末は録画に対応していません"); return; }
+    recChunks=[]; recMime=pickMime();
+    try{ recorder = recMime ? new MediaRecorder(stream,{mimeType:recMime}) : new MediaRecorder(stream); }
+    catch(e){ try{ recorder=new MediaRecorder(stream); }catch(e2){ toast("録画を開始できませんでした"); return; } }
+    recorder.ondataavailable=e=>{ if(e.data && e.data.size) recChunks.push(e.data); };
+    recorder.onstop=()=>{
+      const type=(recorder && recorder.mimeType) || recMime || "video/mp4";
+      const blob=new Blob(recChunks,{type});
+      const ext=/mp4/.test(type)?"mp4":"webm";
+      addItem({type:"video", blob, ext});
+    };
+    recorder.start();
+    recStart=Date.now();
+    document.body.classList.add("recording");
+    shutter.classList.add("rec");
+    rectimeEl.classList.add("show"); tickRec();
+    recInt=setInterval(tickRec,250);
+    if(navigator.vibrate) navigator.vibrate(12);
+  }
+  function tickRec(){
+    const s=Math.floor((Date.now()-recStart)/1000);
+    rectimeText.textContent=Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+  }
+  function stopRec(){
+    if(recorder && recorder.state!=="inactive"){ try{ recorder.stop(); }catch(e){} }
+    clearInterval(recInt);
+    document.body.classList.remove("recording");
+    shutter.classList.remove("rec");
+    rectimeEl.classList.remove("show");
+    if(navigator.vibrate) navigator.vibrate(12);
+  }
+
+  /* ---------------- シャッター/モード ---------------- */
+  shutter.addEventListener("click",()=>{
+    if(mode==="photo"){ capturePhoto(); }
+    else { (recorder && recorder.state==="recording") ? stopRec() : startRec(); }
+  });
+
+  modeSwitch.addEventListener("click",e=>{
+    const b=e.target.closest("button"); if(!b) return;
+    const m=b.dataset.mode; if(m===mode) return;
+    if(recorder && recorder.state==="recording") return; // 録画中は変更不可
+    mode=m;
+    [...modeSwitch.children].forEach(x=>x.classList.toggle("active",x.dataset.mode===m));
+    shutter.classList.toggle("video", m==="video");
+    btnTimer.style.display = (m==="video")?"none":"flex";
+    requestStream(); // ビデオはマイク付きで取り直し
+  });
+
+  /* ---------------- 追加 / サムネ ---------------- */
+  function addItem(it){ it.url=URL.createObjectURL(it.blob); items.unshift(it); updateThumb(); }
   function updateThumb(){
     thumb.innerHTML="";
-    if(photos.length){
-      const img=document.createElement("img"); img.src=photos[0].url; thumb.appendChild(img);
-      if(photos.length>1){
-        const b=document.createElement("span"); b.className="badge"; b.textContent=photos.length;
-        thumb.appendChild(b);
+    if(items.length){
+      const it=items[0];
+      if(it.type==="photo"){ const img=document.createElement("img"); img.src=it.url; thumb.appendChild(img); }
+      else{
+        const v=document.createElement("video"); v.src=it.url; v.muted=true; v.playsInline=true; v.preload="metadata"; thumb.appendChild(v);
+        const p=document.createElement("span"); p.className="play"; p.innerHTML='<svg viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>'; thumb.appendChild(p);
       }
+      if(items.length>1){ const b=document.createElement("span"); b.className="badge"; b.textContent=items.length; thumb.appendChild(b); }
     }else{
       thumb.innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5a5a5e" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
     }
   }
 
-  /* ---------- レビュー / ギャラリー ---------- */
-  function openReview(){
-    if(!photos.length){ toast("まだ写真がありません"); return; }
-    renderReview(); review.classList.add("show");
-    revstage.scrollLeft=0;
-  }
+  /* ---------------- レビュー ---------------- */
+  function openReview(){ if(!items.length){ toast("まだ何もありません"); return; } renderReview(); review.classList.add("show"); revstage.scrollLeft=0; }
   function renderReview(){
     revstage.innerHTML="";
-    if(!photos.length){ revEmpty.style.display="flex"; revCount.textContent=""; return; }
+    if(!items.length){ revEmpty.style.display="flex"; revCount.textContent=""; return; }
     revEmpty.style.display="none";
-    photos.forEach(p=>{
+    items.forEach(it=>{
       const s=document.createElement("div"); s.className="slide";
-      const img=document.createElement("img"); img.src=p.url; s.appendChild(img);
+      if(it.type==="photo"){ const img=document.createElement("img"); img.src=it.url; s.appendChild(img); }
+      else{ const v=document.createElement("video"); v.src=it.url; v.controls=true; v.playsInline=true; s.appendChild(v); }
       revstage.appendChild(s);
     });
     updateRevCount();
   }
-  function currentIndex(){
-    return Math.round(revstage.scrollLeft/revstage.clientWidth);
-  }
-  function updateRevCount(){
-    revCount.textContent=`${Math.min(currentIndex()+1,photos.length)} / ${photos.length}`;
-  }
-  revstage.addEventListener("scroll",()=>{ if(photos.length) updateRevCount(); });
+  function curIdx(){ return Math.round(revstage.scrollLeft/revstage.clientWidth); }
+  function updateRevCount(){ revCount.textContent=`${Math.min(curIdx()+1,items.length)} / ${items.length}`; }
+  revstage.addEventListener("scroll",()=>{ if(items.length) updateRevCount(); });
   revClose.addEventListener("click",()=>review.classList.remove("show"));
 
-  // 保存(iOSは共有シート経由で「写真に保存」)
-  async function savePhoto(){
-    if(!photos.length) return;
-    const p=photos[currentIndex()];
-    const fname="photo_"+Date.now()+".jpg";
-    const file=new File([p.blob],fname,{type:"image/jpeg"});
+  async function save(){
+    if(!items.length) return;
+    const it=items[curIdx()];
+    const fname=(it.type==="photo"?"photo_":"video_")+Date.now()+"."+it.ext;
+    const file=new File([it.blob],fname,{type:it.blob.type||(it.type==="photo"?"image/jpeg":"video/mp4")});
     if(navigator.canShare && navigator.canShare({files:[file]})){
-      try{ await navigator.share({files:[file]}); }
-      catch(e){ /* キャンセルは無視 */ }
+      try{ await navigator.share({files:[file]}); }catch(e){}
     }else{
-      const a=document.createElement("a"); a.href=p.url; a.download=fname;
-      document.body.appendChild(a); a.click(); a.remove();
+      const a=document.createElement("a"); a.href=it.url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
       toast("ダウンロードしました");
     }
   }
-  revSave.addEventListener("click",savePhoto);
-
+  revSave.addEventListener("click",save);
   revDel.addEventListener("click",()=>{
-    if(!photos.length) return;
-    const i=currentIndex();
-    URL.revokeObjectURL(photos[i].url);
-    photos.splice(i,1);
-    updateThumb();
-    if(!photos.length){ review.classList.remove("show"); return; }
-    renderReview();
-    revstage.scrollLeft=Math.min(i,photos.length-1)*revstage.clientWidth;
+    if(!items.length) return;
+    const i=curIdx(); URL.revokeObjectURL(items[i].url); items.splice(i,1); updateThumb();
+    if(!items.length){ review.classList.remove("show"); return; }
+    renderReview(); revstage.scrollLeft=Math.min(i,items.length-1)*revstage.clientWidth;
   });
 
-  /* ---------- 上部ボタン ---------- */
-  btnGrid.addEventListener("click",()=>{
-    gridEl.classList.toggle("on");
-    btnGrid.classList.toggle("active",gridEl.classList.contains("on"));
-  });
+  /* ---------------- 上部ボタン ---------------- */
+  btnGrid.addEventListener("click",()=>{ gridEl.classList.toggle("on"); btnGrid.classList.toggle("active",gridEl.classList.contains("on")); });
+  btnTimer.addEventListener("click",()=>{ timerMode=(timerMode+1)%3; if(timerMode===0){ btnTimer.classList.remove("active"); timerLabel.textContent=""; } else { btnTimer.classList.add("active"); timerLabel.textContent=timers[timerMode]; } });
+  btnTorch.addEventListener("click",async()=>{ if(!track)return; torchOn=!torchOn; try{ await track.applyConstraints({advanced:[{torch:torchOn}]}); btnTorch.classList.toggle("active",torchOn); }catch(e){ torchOn=false; toast("この端末ではライトを使えません"); } });
 
-  btnTimer.addEventListener("click",()=>{
-    timerMode=(timerMode+1)%3;
-    if(timerMode===0){ btnTimer.classList.remove("active"); timerLabel.textContent=""; }
-    else{ btnTimer.classList.add("active"); timerLabel.textContent=timers[timerMode]; }
-  });
-
-  btnTorch.addEventListener("click",async()=>{
-    if(!track) return;
-    torchOn=!torchOn;
-    try{
-      await track.applyConstraints({advanced:[{torch:torchOn}]});
-      btnTorch.classList.toggle("active",torchOn);
-    }catch(e){
-      torchOn=false; toast("この端末ではライトを使えません");
-    }
-  });
-
-  /* ---------- メイン操作 ---------- */
-  shutter.addEventListener("click",capture);
+  /* ---------------- 操作 ---------------- */
   thumb.addEventListener("click",openReview);
-  flip.addEventListener("click",()=>{
-    facing = facing==="environment" ? "user" : "environment";
-    startCamera();
-  });
-  startBtn.addEventListener("click",()=>{ errEl.style.display="none"; startCamera(); });
-
-  // 画面回転・復帰時の再生維持
-  document.addEventListener("visibilitychange",()=>{
-    if(!document.hidden && video.srcObject) video.play().catch(()=>{});
-  });
+  flip.addEventListener("click",()=>{ if(recorder&&recorder.state==="recording")return; side = side==="back"?"front":"back"; requestStream(); });
+  startBtn.addEventListener("click",()=>{ errEl.style.display="none"; requestStream(); });
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden && video.srcObject) video.play().catch(()=>{}); });
 })();
 </script>
 </body>
 </html>
+
